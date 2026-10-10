@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#17102a">
+<title>星辉之誓 · Starlight Oath</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #17102a;
+    background-image:
+      radial-gradient(circle at 20% 10%, #2a1d4a 0%, transparent 50%),
+      radial-gradient(circle at 80% 90%, #1d2a4a 0%, transparent 50%);
+    color: #d8d0ee;
+    font-family: "Menlo", "Consolas", "Courier New", monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #wrap {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    padding: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ============ 游戏区域 ============ */
+  #game {
+    position: relative;
+    aspect-ratio: 34 / 22;
+    width: min(816px, 96vw, calc(96vh * 34 / 22));
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    border: 4px solid #3d2f5c;
+    box-shadow: 0 0 0 2px #1a1428, 0 16px 48px rgba(0,0,0,.65);
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: pointer;
+    touch-action: none;
+    background: #05070a;
+  }
+
+  /* ============ 迷你 HUD（移动端） ============ */
+  #miniHUD {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: none;
+    gap: 10px;
+    background: rgba(13, 10, 24, 0.78);
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid #3d2f5c;
+    font-size: 12px;
+    color: #fff3d6;
+    pointer-events: none;
+    z-index: 5;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #miniHUD span { display: inline-flex; gap: 3px; align-items: center; }
+  #miniHUD b { color: #ffd166; }
+  #miniHUD .hp { color: #ff7b72; }
+
+  /* ============ 触控层 ============ */
+  #touchLayer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: none;
+    z-index: 10;
+  }
+  .tbtn {
+    width: 58px;
+    height: 58px;
+    background: rgba(42, 31, 69, 0.72);
+    border: 2px solid rgba(125, 90, 200, 0.75);
+    border-radius: 14px;
+    color: #d8d0ee;
+    font-size: 22px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.06s, transform 0.06s, border-color 0.06s;
+    touch-action: none;
+    pointer-events: auto;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .tbtn.pressed {
+    background: rgba(125, 90, 200, 0.92);
+    border-color: #ffd166;
+    transform: scale(0.92);
+    color: #fff3d6;
+  }
+
+  .dpad {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, 58px);
+    grid-template-rows: repeat(3, 58px);
+    gap: 5px;
+    pointer-events: none;
+  }
+  .dpad [data-key="ArrowUp"]    { grid-column: 2; grid-row: 1; }
+  .dpad [data-key="ArrowLeft"]  { grid-column: 1; grid-row: 2; }
+  .dpad [data-key="ArrowDown"]  { grid-column: 2; grid-row: 3; }
+  .dpad [data-key="ArrowRight"] { grid-column: 3; grid-row: 2; }
+
+  .actions {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    display: grid;
+    grid-template-columns: 58px 58px;
+    grid-template-rows: 58px 58px;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .actions .tbtn {
+    font-size: 17px;
+    pointer-events: auto;
+  }
+  .actions [data-key="potion"] { color: #ff7b9c; }
+  .actions [data-key="wait"]   { color: #7dd3fc; }
+  .actions [data-key="descend"]{ color: #4ecdc4; }
+  .actions [data-key="menu"]   { color: #ffd166; }
+
+  /* ============ 侧边栏（桌面端） ============ */
+  aside {
+    width: 262px;
+    background: linear-gradient(160deg, #241b38, #1b1430);
+    border: 4px solid #3d2f5c;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  }
+  h1 {
+    font-size: 15px;
+    letter-spacing: 2px;
+    margin: 0 0 14px;
+    color: #ffd166;
+    font-weight: 700;
+    text-shadow: 0 2px 0 #7a4a12;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    padding: 3px 0;
+    color: #9b8fc0;
+  }
+  .row b { color: #fff3d6; font-weight: 600; }
+  .bar {
+    height: 14px;
+    background: #120c22;
+    border-radius: 7px;
+    overflow: hidden;
+    margin: 8px 0 4px;
+    border: 2px solid #3d2f5c;
+  }
+  #hpbar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #ff4d6d, #ff9f43);
+    transition: width .18s ease;
+  }
+  .hptext {
+    font-size: 11px;
+    text-align: right;
+    color: #9b8fc0;
+    margin-bottom: 10px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px 8px;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+  .cell {
+    background: #1a1330;
+    border: 2px solid #322653;
+    border-radius: 8px;
+    padding: 5px 8px;
+    color: #9b8fc0;
+    display: flex;
+    justify-content: space-between;
+  }
+  .cell b { color: #fff3d6; }
+  .quest {
+    margin-top: 12px;
+    background: linear-gradient(150deg, #2a1d45, #1e1636);
+    border: 2px solid #5b4a8f;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .quest.tut {
+    border-color: #7dd3fc;
+    background: linear-gradient(150deg, #1a2d45, #14203a);
+    box-shadow: 0 0 12px rgba(125,211,252,0.25);
+  }
+  .qhead {
+    font-size: 10px;
+    color: #9b8fc0;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .quest.tut .qhead { color: #7dd3fc; }
+  .qtitle {
+    font-size: 12.5px;
+    color: #ffd166;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .quest.tut .qtitle { color: #7dd3fc; }
+  .qdesc {
+    font-size: 11px;
+    color: #b3a5dd;
+    line-height: 1.55;
+  }
+  #log {
+    margin-top: 12px;
+    border-top: 2px solid #322653;
+    padding-top: 10px;
+    font-size: 11.5px;
+    line-height: 1.65;
+    min-height: 100px;
+    color: #7d6fa8;
+  }
+  #log div:last-child { color: #e8ddff; }
+  .help {
+    margin-top: 12px;
+    font-size: 10.5px;
+    line-height: 1.75;
+    color: #5f5388;
+    border-top: 2px solid #322653;
+    padding-top: 10px;
+  }
+  kbd {
+    background: #2a1f45;
+    border: 1px solid #443a68;
+    border-radius: 4px;
+    padding: 0 4px;
+    color: #b3a5dd;
+    font-size: 10px;
+  }
+
+  /* ============ 移动端适配 ============ */
+  @media (max-width: 1140px) {
+    #wrap {
+      padding: 4px;
+      gap: 0;
+    }
+    aside { display: none; }
+    #game {
+      width: min(100vw - 8px, calc(100vh * 34 / 22) - 8px);
+      border-radius: 10px;
+    }
+  }
+
+  /* 触控设备：显示触控层与迷你 HUD */
+  .touch-device #touchLayer { display: block; }
+  .touch-device #miniHUD { display: flex; }
+
+  /* 竖屏提示 */
+  #rotateHint {
+    position: fixed;
+    inset: 0;
+    background: #0a0714;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    color: #ffd166;
+    text-align: center;
+    padding: 30px;
+  }
+  #rotateHint .icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    animation: rotateHint 2.2s ease-in-out infinite;
+  }
+  #rotateHint p { font-size: 16px; line-height: 1.8; color: #c9bfe8; margin: 6px 0; }
+  #rotateHint small { color: #7d6fa8; font-size: 12px; }
+  @keyframes rotateHint {
+    0%, 40% { transform: rotate(0deg); }
+    60%, 100% { transform: rotate(90deg); }
+  }
+  @media (orientation: portrait) and (max-width: 900px) {
+    #rotateHint { display: flex; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 竖屏提示 -->
+<div id="rotateHint">
+  <div class="icon">📱</div>
+  <p>请将手机横屏使用</p>
+  <p><small>Landscape mode required</small></p>
+</div>
+
+<div id="wrap">
+  <div id="game">
+    <canvas id="cv"></canvas>
+
+    <!-- 移动端迷你 HUD -->
+    <div id="miniHUD">
+      <span class="hp">❤ <b id="mhp">30/30</b></span>
+      <span>🪜 <b id="mfloor">1</b></span>
+      <span>🧪 <b id="mpot">1</b></span>
+      <span>⭐ <b id="mlvl">1</b></span>
+    </div>
+
+    <!-- 触控层 -->
+    <div id="touchLayer">
+      <div class="dpad">
+        <button class="tbtn" data-key="ArrowUp" aria-label="上">▲</button>
+        <button class="tbtn" data-key="ArrowLeft" aria-label="左">◀</button>
+        <button class="tbtn" data-key="ArrowDown" aria-label="下">▼</button>
+        <button class="tbtn" data-key="ArrowRight" aria-label="右">▶</button>
+      </div>
+      <div class="actions">
+        <button class="tbtn" data-key="potion" aria-label="药水">药</button>
+        <button class="tbtn" data-key="wait" aria-label="等待">等</button>
+        <button class="tbtn" data-key="descend" aria-label="下楼">下</button>
+        <button class="tbtn" data-key="menu" aria-label="菜单">菜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 桌面端侧边栏 -->
+  <aside>
+    <h1>◈ 星辉之誓</h1>
+    <div class="row"><span>楼层</span><b id="floor">1</b></div>
+    <div class="bar"><div id="hpbar"></div></div>
+    <div class="hptext" id="hptext">30 / 30</div>
+    <div class="grid">
+      <div class="cell"><span>等级</span><b id="lvl">1</b></div>
+      <div class="cell"><span>攻击</span><b id="atk">6</b></div>
+      <div class="cell"><span>防御</span><b id="def">1</b></div>
+      <div class="cell"><span>药水</span><b id="pot">1</b></div>
+      <div class="cell"><span>金币</span><b id="gold">0</b></div>
+      <div class="cell"><span>经验</span><b id="exp">0/12</b></div>
+    </div>
+    <div class="quest" id="questBox">
+      <div class="qhead" id="qhead">◈ 主线任务</div>
+      <div class="qtitle" id="qtitle">第一章 · 深入地牢</div>
+      <div class="qdesc" id="qdesc">抵达地牢第 3 层</div>
+    </div>
+    <div id="log"></div>
+    <div class="help">
+      <kbd>WASD</kbd>/<kbd>↑↓←→</kbd> 移动 · 撞向怪物攻击<br>
+      <kbd>空格</kbd> 推进对话 / 原地等待<br>
+      <kbd>1</kbd> 喝治疗药水<br>
+      <kbd>&gt;</kbd> 站在楼梯上下一层<br>
+      <kbd>R</kbd> 重新开始 · <kbd>ESC</kbd> 跳过教程
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ============================================================
+   常量
+   ============================================================ */
+const W = 34, H = 22, TS = 24;
+const FOV_RADIUS = 8;
+const MAX_FLOOR = 10;
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+cv.width = W * TS;
+cv.height = H * TS;
+ctx.imageSmoothingEnabled = false;
+
+const rnd = n => Math.floor(Math.random() * n);
+const rndInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const sign = n => n < 0 ? -1 : n > 0 ? 1 : 0;
+
+/* ============================================================
+   触控设备检测
+   ============================================================ */
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+if (isTouch) document.body.classList.add('touch-device');
+
+/* ============================================================
+   像素素材
+   ============================================================ */
+const SPR = {};
+
+SPR.hero = {
+  rows: [
+    "....OOOO....","...OHHHHO...","..OHHHHHHO..","..OHSSSSHO..",
+    "..OSESSESO..","..OSSSSSSO..","...OSSSSO...","..OAAAAAAO..",
+    ".OAAAAAAAAO.",".OAAAAAAAAO.","..OAAOOAAO..","..OO....OO.."
+  ],
+  pal: { O:'#241b2f', H:'#ff9f43', S:'#ffdcb0', E:'#241b2f', A:'#3ec9c0' }
+};
+
+SPR.slime = {
+  rows: [
+    "............","....OOOO....","...OLLLLO...","..OLLLLLLO..",
+    ".OLLLLLLLLO.",".OLELLLLELO.",".OLLLLLLLLO.",".OLLLLLLLLO.",
+    "OLLLLLLLLLLO","OLLLLLLLLLLO","OLLLLLLLLLLO",".OOOOOOOOOO."
+  ],
+  pal: { O:'#241b2f', L:'#5cc9ff', E:'#241b2f' }
+};
+
+SPR.bat = {
+  rows: [
+    "............","O..........O","OO........OO","OPO.OOOO.OPO",
+    "OPPPBBBBPPPO","OPBBEBBEBBPO",".OBBBBBBBBO.","..OBBBBBBO..",
+    "...OBBBBO...","....OOOO....","............","............"
+  ],
+  pal: { O:'#241b2f', P:'#c9a7ff', B:'#8b5cf6', E:'#ffd166' }
+};
+
+SPR.goblin = {
+  rows: [
+    "............",".O.OOOOOO.O.",".OOOOOOOOOO.",".OGGGGGGGGO.",
+    ".OGEGGGGEGO.",".OGGGGGGGGO.","..OGGGGGGO..",".OOGGGGGGOO.",
+    ".OOGGGGGGOO.","..OO....OO..","..OO....OO..","............"
+  ],
+  pal: { O:'#241b2f', G:'#7ed957', E:'#241b2f' }
+};
+
+SPR.skeleton = {
+  rows: [
+    "............","....OOOO....","...OWWWWO...","..OWWWWWWO..",
+    "..OWEWWEWO..","..OWWWWWWO..","...OWWWWO...","..OWWWWWWO..",
+    ".OWWWWWWWWO.",".OW.OWWO.WO.",".OWWWWWWWWO.","..OO....OO.."
+  ],
+  pal: { O:'#241b2f', W:'#f2f4f8', E:'#241b2f' }
+};
+
+SPR.troll = {
+  rows: [
+    "............","..O.OOOO.O..",".OTTTTTTTTO.",".OTETTTTETO.",
+    ".OTTTTTTTTO.",".OTTTTTTTTO.","..OTTTTTTO..",".OTTTTTTTTO.",
+    ".OTTTTTTTTO.",".OTTTTTTTTO.","..OTT..TTO..","..OO....OO.."
+  ],
+  pal: { O:'#241b2f', T:'#ff8c42', E:'#241b2f' }
+};
+
+SPR.demon = {
+  rows: [
+    "O..........O","OO........OO",".O........O.","..OOOOOOOO..",
+    ".ODDDDDDDDO.",".ODEDDDDEDO.",".ODDDDDDDDO.",".ODDDDDDDDO.",
+    "..ODDDDDDO..",".ODDDDDDDDO.",".ODDDDDDDDO.","..OO....OO.."
+  ],
+  pal: { O:'#241b2f', D:'#e63946', E:'#ffe066' }
+};
+
+SPR.boss = {
+  rows: [
+    ".O.OOOOOO.O.",".O.OOOOOO.O.",".OOOOOOOOOO.",".OGGGGGGGGO.",
+    ".OCCCCCCCCO.",".OCECCCCECO.",".OCCCCCCCCO.","OOCCCCCCCCOO",
+    "OCCCCCCCCCCO","OCCCCCCCCCCO",".OCCCCCCCCO.","..OO....OO.."
+  ],
+  pal: { O:'#241b2f', G:'#ffd166', C:'#c1121f', E:'#ffe066' }
+};
+
+SPR.potion = {
+  rows: [
+    "............","....OOOO....","....OWWO....","...OWWWWO...",
+    "..OPPPPPPO..","..OPPPPPPO..","..OPPPPPPO..","..OPPPPPPO..",
+    "..OPPPPPPO..","...OPPPPO...","....OOOO....","............"
+  ],
+  pal: { O:'#241b2f', W:'#e8f6ff', P:'#ff6b9d' }
+};
+
+SPR.gold = {
+  rows: [
+    "............","....OOOO....","..OOGGGGOO..",".OGGGGGGGGO.",
+    ".OGGYYGGGGO.",".OGGGGGGGGO.",".OGGGGGGGGO.","..OOGGGGOO..",
+    "....OOOO....","............","............","............"
+  ],
+  pal: { O:'#241b2f', G:'#ffd166', Y:'#fff3b0' }
+};
+
+SPR.sword = {
+  rows: [
+    "............",".....SS.....",".....SS.....",".....SS.....",
+    ".....SS.....",".....SS.....",".....SS.....","...HHHHHH...",
+    ".....HH.....",".....HH.....",".....HH.....","............"
+  ],
+  pal: { S:'#c0c8d8', H:'#a9713c' }
+};
+
+SPR.shield = {
+  rows: [
+    "............","..OOOOOOOO..",".OSSSSSSSSO.",".OSSYYYYSSO.",
+    ".OSSYYYYSSO.",".OSSSSSSSSO.","..OSSSSSSO..","...OSSSSO...",
+    "....OSSO....",".....OO.....","............","............"
+  ],
+  pal: { O:'#241b2f', S:'#4a90d9', Y:'#ffd166' }
+};
+
+SPR.stairs = {
+  rows: [
+    "............","..OOOOOOOO..","..OSSSSSSO..","..OSSSSSSO..",
+    "..OSSSSSSO..","..OSSSSSSO..","OOSSSSSSSSOO",".OSSSSSSSSO.",
+    "..OSSSSSSO..","...OSSSSO...","....OOOO....","............"
+  ],
+  pal: { O:'#241b2f', S:'#4ecdc4' }
+};
+
+SPR.npc_smith = {
+  rows: [
+    "............","...OOOO.....","...OFFFFO...","...OFFFFO...",
+    "...OBBBBO...","..OOBBBBOO..","..OKKKKKKO..","..OKKKKKKO..",
+    "..OKKKKKKO..","...OO..OO...","...OO..OO...","............"
+  ],
+  pal: { O:'#241b2f', F:'#ffd9b0', B:'#8b5a2b', K:'#a0522d' }
+};
+
+SPR.npc_lina = {
+  rows: [
+    "....OOOO....","...OGGGGO...","..OGGGGGGO..","..OGBGGBGO..",
+    "..OGGGGGGO..","..OGGGGGGO..",".OGGGGGGGGO.",".OGGGGGGGGO.",
+    "OGGGGGGGGGGO","OGGGGGGGGGGO",".OGGGGGGGGO.","..OOOOOOOO.."
+  ],
+  pal: { O:'#241b2f', G:'#a8e6ff', B:'#1a3a5c' }
+};
+
+SPR.npc_gareth = {
+  rows: [
+    "....OOOO....","...OSSSSO...","..OSSSSSSO..","..OSBSSBSO..",
+    "..OSSSSSSO..",".OSSSSSSSSO.",".OSSSSSSSSO.",".OSSSSSSSSO.",
+    ".OSS.SS.SSO.","..SS.SS.SS..","..SS....SS..","..OO....OO.."
+  ],
+  pal: { O:'#241b2f', S:'#c8d4e8', B:'#241b2f' }
+};
+
+SPR.npc_pip = {
+  rows: [
+    "............","...OOOOOO...","..OGGGGGGO..",".OGGGGGGGGO.",
+    "..OFFFFFFO..","..OFSFFSFO..","..OFFFFFFO..","..OKKKKKKO..",
+    "..OKKKKKKO..","..OKKKKKKO..","...OO..OO...","............"
+  ],
+  pal: { O:'#241b2f', G:'#3ec9c0', F:'#ffd9b0', S:'#241b2f', K:'#7ed957' }
+};
+
+/* ============================================================
+   怪物模板
+   ============================================================ */
+const MONSTERS = [
+  { name:'史莱姆',   sprite:'slime',    hp: 9,  atk: 4,  def: 0, exp: 4,  minFloor:1 },
+  { name:'蝙蝠',     sprite:'bat',      hp: 7,  atk: 5,  def: 0, exp: 5,  minFloor:1 },
+  { name:'哥布林',   sprite:'goblin',   hp:14,  atk: 6,  def: 1, exp: 8,  minFloor:2 },
+  { name:'骷髅兵',   sprite:'skeleton', hp:18,  atk: 8,  def: 2, exp:12,  minFloor:4 },
+  { name:'巨魔',     sprite:'troll',    hp:28,  atk:11,  def: 4, exp:20,  minFloor:6 },
+  { name:'深渊恶魔', sprite:'demon',    hp:40,  atk:15,  def: 6, exp:34,  minFloor:8 }
+];
+
+const BOSS_TPL = {
+  name:'地牢领主', sprite:'boss',
+  hp:150, atk:20, def:8, exp:300, boss:true
+};
+
+/* ============================================================
+   任务 & NPC
+   ============================================================ */
+const QUESTS = [
+  { title:'第一章 · 深入地牢',   desc:'抵达地牢第 3 层' },
+  { title:'第二章 · 幽魂的真相', desc:'在第 4 层寻找幽魂莉娜' },
+  { title:'第三章 · 三枚符文',   desc:'从深渊造物身上收集符文碎片 (0/3)' },
+  { title:'第四章 · 净化领主',   desc:'击败地牢领主，净化星辉圣殿' },
+  { title:'终章 · 星辉重燃',     desc:'圣殿的黑暗已经散去' }
+];
+
+const NPC_DEFS = {
+  smith: {
+    id:'smith', name:'铁匠格罗姆', sprite:'npc_smith', floor:2,
+    long: [
+      '嘿，生面孔。好久没见到活人了。',
+      '我是格罗姆，曾经为星辉圣殿打造过兵器。',
+      '这座地牢，以前叫做「星辉圣殿」——封印深渊的圣地。',
+      '守护者阿斯特拉，是圣殿最强的骑士。为了封印深渊，他以自身为容器……',
+      '可三百年过去，封印衰弱，深渊腐蚀了他的意志。',
+      '如今他成了地牢领主，把整座圣殿拖入了黑暗。',
+      '拿着这些吧，小子。愿星辉照亮你的路。'
+    ],
+    short: ['小心点，越往下越危险。'],
+    reward(p) { p.potions += 2; p.atk += 1; return '获得 治疗药水 ×2，攻击 +1'; }
+  },
+  lina: {
+    id:'lina', name:'幽魂莉娜', sprite:'npc_lina', floor:4,
+    long: [
+      '又一个守誓者……我等了很久很久。',
+      '我是莉娜，阿斯特拉的学生。封印那天，我留在了这里。',
+      '导师他……并没有死。他的灵魂还被困在深渊的躯壳里。',
+      '要净化他，需要三枚「星辉符文」——那是他当年佩戴的护符碎片。',
+      '碎片散落在深渊造物的身上，只有击败它们才能取回。',
+      '收集三枚符文，你才有机会唤醒他。',
+      '去吧。愿星光指引你。'
+    ],
+    short: ['符文碎片就在深渊造物的身上。'],
+    reward(p) { return '接受了主线任务：收集三枚符文碎片'; }
+  },
+  gareth: {
+    id:'gareth', name:'骑士加雷斯', sprite:'npc_gareth', floor:6,
+    long: [
+      '别……别过去……它太强大了……',
+      '我曾经是讨伐队的一员。整队十二人，只剩我一个。',
+      '我们连它的影子都没看清，就被撕碎了。',
+      '你是守誓者的后裔？……那或许还有希望。',
+      '拿上我的护甲碎片吧。这是我唯一能做的了。'
+    ],
+    short: ['答应我……一定要终结这一切。'],
+    reward(p) { p.def += 2; p.hp = Math.min(p.maxhp, p.hp + 10); return '获得 守护碎片，防御 +2，恢复 10 点生命'; }
+  },
+  pip: {
+    id:'pip', name:'商人皮普', sprite:'npc_pip', floor:8,
+    long: [
+      '嘿嘿，最后一层了，老板？',
+      '我可是冒着生命危险把货送到这儿的。',
+      '不过看你这样子……是个干大事的人。',
+      '这些药水就送你了，算是我皮普的一点心意。',
+      '要是你能活着出来，记得给我立个碑啊。'
+    ],
+    short: ['前面就是领主的王座了，小心点。'],
+    reward(p) { p.potions += 3; return '获得 治疗药水 ×3'; }
+  }
+};
+
+/* ============================================================
+   教程步骤
+   ============================================================ */
+const TUTORIAL_STEPS = [
+  { id:'move',   title:'移动',     text:'使用方向键移动角色',         goal:'向任意方向移动 3 次', check: () => tutorial.movesDone >= 3 },
+  { id:'pickup', title:'拾取物品', text:'走到物品上会自动拾取',       goal:'捡起地上的金币或药水', check: () => tutorial.pickedUp },
+  { id:'attack', title:'攻击',     text:'朝怪物方向移动即可发起攻击', goal:'击败一只怪物',         check: () => tutorial.attacked },
+  { id:'potion', title:'使用药水', text:'按 药 键喝下治疗药水',       goal:'使用一瓶治疗药水',     check: () => tutorial.potioned },
+  { id:'stairs', title:'进入下一层', text:'站在楼梯上，按 下 键',     goal:'找到楼梯并进入第 2 层', check: () => tutorial.descended }
+];
+
+/* ============================================================
+   状态
+   ============================================================ */
+let map, seen, visible, monsters, items, npcs, p, floorNum, msgs, gameState;
+let dialog = null;
+let questStage = 0;
+let runes = 0;
+let runeDroppedThisFloor = false;
+
+let tutorial = {
+  active: false, step: 0, movesDone: 0,
+  pickedUp: false, attacked: false, potioned: false, descended: false
+};
+
+let titleMenuIdx = 0;
+let titleView = 'main';
+const TITLE_MENU = [
+  { id:'start',    label:'开 始 冒 险' },
+  { id:'tutorial', label:'新 手 教 程' },
+  { id:'help',     label:'操 作 说 明' },
+  { id:'about',    label:'圣 殿 传 说' }
+];
+
+const el = {
+  floor: document.getElementById('floor'),
+  hpbar: document.getElementById('hpbar'),
+  hptext: document.getElementById('hptext'),
+  lvl: document.getElementById('lvl'),
+  atk: document.getElementById('atk'),
+  def: document.getElementById('def'),
+  pot: document.getElementById('pot'),
+  gold: document.getElementById('gold'),
+  exp: document.getElementById('exp'),
+  questBox: document.getElementById('questBox'),
+  qhead: document.getElementById('qhead'),
+  qtitle: document.getElementById('qtitle'),
+  qdesc: document.getElementById('qdesc'),
+  log: document.getElementById('log'),
+  mhp: document.getElementById('mhp'),
+  mfloor: document.getElementById('mfloor'),
+  mpot: document.getElementById('mpot'),
+  mlvl: document.getElementById('mlvl')
+};
+
+/* ============================================================
+   标题界面
+   ============================================================ */
+let stars = [];
+let titleVignette = null;
+
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 110; i++) {
+    stars.push({
+      x: Math.random() * cv.width,
+      y: Math.random() * cv.height * 0.8,
+      s: Math.random() < 0.72 ? 1 : 2,
+      ph: Math.random() * Math.PI * 2,
+      sp: 0.5 + Math.random() * 1.6
+    });
+  }
+  const g = ctx.createRadialGradient(
+    cv.width / 2, cv.height / 2, cv.height * 0.25,
+    cv.width / 2, cv.height / 2, cv.height * 1.0
+  );
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,0.6)');
+  titleVignette = g;
+}
+
+const TEMPLE_ROWS = [
+  '..........C..........',
+  '..........C..........',
+  '.........#S#.........',
+  '.........#S#.........',
+  '.........#S#.........',
+  '......###SSS###......',
+  '......#SSSSSSS#......',
+  '......#SWSSSWS#......',
+  '......#SSSSSSS#......',
+  '...###SSSSSSSSS###...',
+  '...#SSSSSSSSSSSSS#...',
+  '...#SWSSSSSSSSSSW#...',
+  '...#SSSSSSSSSSSSS#...',
+  '..##SSSSSSSSSSSSS##..',
+  '#####################'
+];
+
+function drawTempleSilhouette(t) {
+  const ps = 10;
+  const rows = TEMPLE_ROWS;
+  const w = rows[0].length * ps;
+  const h = rows.length * ps;
+  const bx = Math.round((cv.width - w) / 2);
+  const by = cv.height - h;
+
+  for (let y = 0; y < rows.length; y++) {
+    for (let x = 0; x < rows[y].length; x++) {
+      const c = rows[y][x];
+      if (c === '.') continue;
+
+      let col;
+      if (c === '#') col = '#0a0714';
+      else if (c === 'S') col = '#150e28';
+      else if (c === 'W') {
+        const glow = 0.6 + 0.4 * Math.sin(t / 520 + x * 1.3 + y * 0.7);
+        col = 'rgba(255,209,102,' + glow.toFixed(2) + ')';
+      } else if (c === 'C') {
+        const glow = 0.55 + 0.45 * Math.sin(t / 420);
+        col = 'rgba(125,211,252,' + glow.toFixed(2) + ')';
+      } else continue;
+
+      ctx.fillStyle = col;
+      ctx.fillRect(bx + x * ps, by + y * ps, ps, ps);
+    }
+  }
+
+  const cx = bx + 10 * ps + ps / 2;
+  const cy = by + 1 * ps;
+  const pulse = 0.35 + 0.25 * Math.sin(t / 420);
+  const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 42);
+  rg.addColorStop(0, 'rgba(125,211,252,' + pulse.toFixed(2) + ')');
+  rg.addColorStop(1, 'rgba(125,211,252,0)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(cx - 45, cy - 45, 90, 90);
+}
+
+function menuItemRect(i) {
+  return { x: cv.width / 2 - 132, y: 182 + i * 46, w: 264, h: 42 };
+}
+
+function drawTitleMenu(t) {
+  for (let i = 0; i < TITLE_MENU.length; i++) {
+    const r = menuItemRect(i);
+    const sel = i === titleMenuIdx;
+
+    if (sel) {
+      const pulse = 0.6 + 0.4 * Math.sin(t / 320);
+      ctx.fillStyle = 'rgba(255,209,102,' + (0.10 + 0.09 * pulse).toFixed(3) + ')';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = '#ffd166';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+    } else {
+      ctx.fillStyle = 'rgba(24,17,44,0.65)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = '#3d2f5c';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 19px "Courier New", "Microsoft YaHei", monospace';
+
+    if (sel) {
+      ctx.fillStyle = '#4a2a10';
+      ctx.fillText(TITLE_MENU[i].label, r.x + r.w / 2 + 2, r.y + r.h / 2 + 3);
+      ctx.fillStyle = '#fff3d6';
+      ctx.fillText(TITLE_MENU[i].label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+
+      const ox = Math.sin(t / 220) * 3;
+      ctx.fillStyle = '#ffd166';
+      ctx.font = 'bold 15px "Courier New", monospace';
+      ctx.fillText('▶', r.x + 26 + ox, r.y + r.h / 2 + 1);
+      ctx.fillText('◀', r.x + r.w - 26 - ox, r.y + r.h / 2 + 1);
+    } else {
+      ctx.fillStyle = '#9b8fc0';
+      ctx.fillText(TITLE_MENU[i].label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+    }
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#5f5388';
+  ctx.font = '12px "Courier New", "Microsoft YaHei", monospace';
+  ctx.fillText(isTouch ? '轻触选项开始' : '↑ ↓ 选择 · 回车确认 · 鼠标点击亦可',
+                cv.width / 2, 388);
+}
+
+function drawPanel(title, lines) {
+  ctx.fillStyle = 'rgba(6,4,14,0.9)';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  const pw = 540, ph = 460;
+  const px = (cv.width - pw) / 2;
+  const py = (cv.height - ph) / 2;
+
+  ctx.fillStyle = '#1a1330';
+  ctx.fillRect(px, py, pw, ph);
+
+  ctx.strokeStyle = '#ffd166';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(px + 1.5, py + 1.5, pw - 3, ph - 3);
+
+  ctx.strokeStyle = '#5b4a8f';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + 7.5, py + 7.5, pw - 15, ph - 15);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#4a2a10';
+  ctx.font = 'bold 25px "Courier New", "Microsoft YaHei", monospace';
+  ctx.fillText(title, cv.width / 2 + 2, py + 43);
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText(title, cv.width / 2, py + 41);
+
+  ctx.fillStyle = '#3d2f5c';
+  ctx.fillRect(px + 44, py + 66, pw - 88, 2);
+
+  ctx.textAlign = 'left';
+  let yy = py + 100;
+  for (const line of lines) {
+    if (line === '') { yy += 10; continue; }
+    if (line.startsWith('##')) {
+      ctx.fillStyle = '#ffd166';
+      ctx.font = 'bold 15px "Courier New", "Microsoft YaHei", monospace';
+      ctx.fillText('◆ ' + line.slice(2), px + 46, yy);
+      yy += 26;
+    } else {
+      ctx.fillStyle = '#c9bfe8';
+      ctx.font = '14px "Courier New", "Microsoft YaHei", monospace';
+      ctx.fillText(line, px + 46, yy);
+      yy += 23;
+    }
+  }
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#7d6fa8';
+  ctx.font = '13px "Courier New", "Microsoft YaHei", monospace';
+  ctx.fillText(isTouch ? '轻触屏幕返回' : '按 回车 / 空格 / ESC 返回', cv.width / 2, py + ph - 28);
+}
+
+const HELP_LINES = isTouch ? [
+  '## 移动',
+  '使用左下角方向键 ▲◀▼▶',
+  '',
+  '## 攻击',
+  '朝怪物方向移动即可发起攻击',
+  '',
+  '## 等待',
+  '按右下角 等 键原地等待一回合',
+  '',
+  '## 饮用治疗药水',
+  '按右下角 药 键',
+  '',
+  '## 下一层',
+  '站在楼梯上，按 下 键',
+  '',
+  '## 重新开始',
+  '按 菜 键打开菜单'
+] : [
+  '## 移动',
+  'WASD 或 方向键',
+  '',
+  '## 攻击',
+  '朝怪物方向移动即可发起攻击',
+  '',
+  '## 原地等待',
+  '空格键 等待一回合',
+  '',
+  '## 饮用治疗药水',
+  '按 1 键',
+  '',
+  '## 下一层',
+  '站在楼梯 > 上，按 回车 或 > 键',
+  '',
+  '## 重新开始',
+  '按 R 键'
+];
+
+const ABOUT_LINES = [
+  '## 三百年前',
+  '深渊裂隙在地底撕开。',
+  '星辉圣殿的守护者阿斯特拉，',
+  '以自身为容器，封印了深渊。',
+  '',
+  '## 如今',
+  '封印衰弱，守护者被黑暗侵蚀，',
+  '化为了盘踞地牢的领主。',
+  '',
+  '## 你的使命',
+  '你是守誓者的后裔。',
+  '深入地牢，唤醒阿斯特拉的灵魂，',
+  '让星辉重新照亮圣殿。',
+  '',
+  '## 旅途中',
+  '铁匠格罗姆、幽魂莉娜、骑士加雷斯、商人皮普',
+  '会告诉你真相，并给予帮助。'
+];
+
+function renderTitle(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, cv.height);
+  g.addColorStop(0, '#05030d');
+  g.addColorStop(0.45, '#140d2c');
+  g.addColorStop(1, '#2a1a4a');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  for (const s of stars) {
+    const a = 0.22 + 0.78 * (0.5 + 0.5 * Math.sin(t / (620 * s.sp) + s.ph));
+    ctx.fillStyle = 'rgba(255,244,220,' + a.toFixed(2) + ')';
+    ctx.fillRect(Math.round(s.x), Math.round(s.y), s.s, s.s);
+  }
+
+  const mx = cv.width - 118, my = 96;
+  ctx.fillStyle = 'rgba(255,244,214,0.07)';
+  ctx.beginPath(); ctx.arc(mx, my, 52, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fdf3d0';
+  ctx.beginPath(); ctx.arc(mx, my, 30, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(200,180,150,0.35)';
+  ctx.beginPath(); ctx.arc(mx - 9, my - 6, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx + 7, my + 9, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx + 12, my - 11, 4, 0, Math.PI * 2); ctx.fill();
+
+  drawTempleSilhouette(t);
+
+  const cx = cv.width / 2;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.save();
+  const glow = 0.5 + 0.5 * Math.sin(t / 900);
+  ctx.shadowColor = 'rgba(255,209,102,' + (0.35 + 0.45 * glow).toFixed(2) + ')';
+  ctx.shadowBlur = 26;
+  ctx.fillStyle = '#4a2a10';
+  ctx.font = 'bold 54px "Courier New", "Microsoft YaHei", monospace';
+  ctx.fillText('星 辉 之 誓', cx + 4, 113);
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText('星 辉 之 誓', cx, 109);
+  ctx.restore();
+
+  ctx.fillStyle = '#8b7ab8';
+  ctx.font = 'bold 15px "Courier New", monospace';
+  ctx.fillText('S T A R L I G H T   O A T H', cx, 152);
+
+  ctx.fillStyle = '#3d2f5c';
+  ctx.fillRect(cx - 168, 174, 336, 2);
+  ctx.fillStyle = '#ffd166';
+  ctx.fillRect(cx - 5, 169, 10, 10);
+  ctx.fillStyle = '#1a1330';
+  ctx.fillRect(cx - 2, 172, 4, 4);
+
+  if (titleView === 'main') {
+    drawTitleMenu(t);
+  } else if (titleView === 'help') {
+    drawPanel('操 作 说 明', HELP_LINES);
+  } else if (titleView === 'about') {
+    drawPanel('圣 殿 传 说', ABOUT_LINES);
+  }
+
+  ctx.fillStyle = titleVignette;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(120,105,170,0.6)';
+  ctx.font = '11px "Courier New", monospace';
+  ctx.fillText('v1.2  ·  移动端触屏适配版', cx, cv.height - 12);
+}
+
+/* ============================================================
+   像素渲染
+   ============================================================ */
+function drawSprite(rows, gx, gy, pal, ps) {
+  ps = ps || 2;
+  const h = rows.length, w = rows[0].length;
+  const offX = Math.floor((TS - w * ps) / 2);
+  const offY = Math.floor((TS - h * ps) / 2);
+  const bx = Math.round(gx * TS + offX), by = Math.round(gy * TS + offY);
+
+  for (let y = 0; y < h; y++) {
+    const row = rows[y];
+    for (let x = 0; x < row.length; x++) {
+      const c = row[x];
+      if (c === '.') continue;
+      const col = pal[c];
+      if (!col) continue;
+      ctx.fillStyle = col;
+      ctx.fillRect(bx + x * ps, by + y * ps, ps, ps);
+    }
+  }
+}
+
+function drawShadow(gx, gy) {
+  ctx.fillStyle = 'rgba(12,8,22,0.35)';
+  ctx.fillRect(gx * TS + 5, gy * TS + 21, 14, 3);
+}
+
+function drawFloor(px, py, x, y, vis) {
+  const c = vis
+    ? { b:'#2f2b48', h:'#3a3556', d:'#282444' }
+    : { b:'#151322', h:'#1c1930', d:'#100e1c' };
+  ctx.fillStyle = c.b;
+  ctx.fillRect(px, py, TS, TS);
+
+  const seed = (x * 7 + y * 13) % 4;
+  ctx.fillStyle = c.h;
+  if (seed === 0) {
+    ctx.fillRect(px + 4, py + 4, 4, 4);
+    ctx.fillRect(px + 16, py + 14, 4, 4);
+  } else if (seed === 1) {
+    ctx.fillRect(px + 14, py + 6, 4, 4);
+    ctx.fillRect(px + 6, py + 16, 4, 4);
+  } else if (seed === 2) {
+    ctx.fillRect(px + 8, py + 10, 4, 4);
+  } else {
+    ctx.fillRect(px + 2, py + 13, 4, 4);
+    ctx.fillRect(px + 18, py + 2, 4, 4);
+  }
+
+  ctx.fillStyle = c.d;
+  ctx.fillRect(px, py + TS - 2, TS, 2);
+}
+
+function drawWall(px, py, x, y, vis) {
+  const c = vis
+    ? { b:'#5d4a8a', h:'#8168b5', d:'#3a2d5c', e:'#2a1f45' }
+    : { b:'#2b2242', h:'#382c54', d:'#1a1428', e:'#120d1e' };
+
+  ctx.fillStyle = c.b;
+  ctx.fillRect(px, py, TS, TS);
+  ctx.fillStyle = c.h;
+  ctx.fillRect(px, py, TS, 4);
+  ctx.fillStyle = c.d;
+  ctx.fillRect(px, py + TS - 4, TS, 4);
+  ctx.fillStyle = c.e;
+  ctx.fillRect(px, py + 12, TS, 2);
+  const off = (y % 2) ? 0 : 12;
+  ctx.fillRect(px + off, py + 2, 2, 10);
+  ctx.fillRect(px + ((off + 12) % 24), py + 14, 2, 8);
+  ctx.fillRect(px, py, TS, 1);
+  ctx.fillRect(px, py, 1, TS);
+}
+
+/* ============================================================
+   地图生成
+   ============================================================ */
+function blankMap() {
+  return Array.from({ length: H }, () => Array(W).fill(0));
+}
+function roomCenter(r) {
+  return { x: r.x + Math.floor(r.w / 2), y: r.y + Math.floor(r.h / 2) };
+}
+function hallH(x1, x2, y) {
+  for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) map[y][x] = 1;
+}
+function hallV(y1, y2, x) {
+  for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) map[y][x] = 1;
+}
+
+function genTutorialFloor() {
+  map = blankMap();
+
+  for (let y = 6; y <= 15; y++)
+    for (let x = 5; x <= 17; x++)
+      map[y][x] = 1;
+
+  for (let x = 17; x <= 24; x++)
+    for (let y = 10; y <= 11; y++)
+      map[y][x] = 1;
+
+  for (let y = 7; y <= 14; y++)
+    for (let x = 24; x <= 30; x++)
+      map[y][x] = 1;
+
+  map[10][28] = 2;
+
+  p.x = 7;
+  p.y = 10;
+
+  items = [
+    { x: 9,  y: 10, type: 'gold', amount: 15 },
+    { x: 11, y: 10, type: 'potion' }
+  ];
+
+  monsters = [{
+    name:'训练史莱姆', sprite:'slime',
+    hp: 6, maxhp: 6, atk: 2, def: 0, exp: 4,
+    x: 14, y: 10, awake: false, passive: true
+  }];
+
+  npcs = [];
+
+  seen = Array.from({ length: H }, () => Array(W).fill(false));
+  visible = Array.from({ length: H }, () => Array(W).fill(false));
+}
+
+function genFloor() {
+  let rooms, guard = 0;
+
+  do {
+    map = blankMap();
+    rooms = [];
+    for (let t = 0; t < 300 && rooms.length < 14; t++) {
+      const w = rndInt(4, 9), h = rndInt(3, 6);
+      const x = rndInt(1, W - w - 2), y = rndInt(1, H - h - 2);
+      const overlap = rooms.some(r =>
+        x < r.x + r.w + 1 && x + w + 1 > r.x &&
+        y < r.y + r.h + 1 && y + h + 1 > r.y
+      );
+      if (overlap) continue;
+      rooms.push({ x, y, w, h });
+      for (let yy = y; yy < y + h; yy++)
+        for (let xx = x; xx < x + w; xx++) map[yy][xx] = 1;
+    }
+  } while (rooms.length < 5 && ++guard < 40);
+
+  for (let i = 1; i < rooms.length; i++) {
+    const a = roomCenter(rooms[i - 1]);
+    const b = roomCenter(rooms[i]);
+    if (Math.random() < 0.5) {
+      hallH(a.x, b.x, a.y);
+      hallV(a.y, b.y, b.x);
+    } else {
+      hallV(a.y, b.y, a.x);
+      hallH(a.x, b.x, b.y);
+    }
+  }
+
+  seen = Array.from({ length: H }, () => Array(W).fill(false));
+  visible = Array.from({ length: H }, () => Array(W).fill(false));
+  monsters = [];
+  items = [];
+  npcs = [];
+  runeDroppedThisFloor = false;
+
+  const start = roomCenter(rooms[0]);
+  p.x = start.x;
+  p.y = start.y;
+
+  if (floorNum < MAX_FLOOR) {
+    const end = roomCenter(rooms[rooms.length - 1]);
+    map[end.y][end.x] = 2;
+  }
+
+  const used = new Set([p.x + ',' + p.y]);
+
+  for (const key in NPC_DEFS) {
+    const def = NPC_DEFS[key];
+    if (def.floor === floorNum) placeNPC(def, rooms, used);
+  }
+
+  if (floorNum === MAX_FLOOR) {
+    const bossRoom = rooms[rooms.length - 1];
+    const bc = roomCenter(bossRoom);
+    monsters.push(makeMonster(BOSS_TPL, bc.x, bc.y));
+    used.add(bc.x + ',' + bc.y);
+    for (let i = 0; i < 4; i++) spawnMonsterIn(rooms, used);
+  } else {
+    const count = Math.min(3 + floorNum, 11);
+    for (let i = 0; i < count; i++) spawnMonsterIn(rooms, used);
+  }
+
+  for (let i = 0, n = rndInt(2, 3); i < n; i++) placeItem(rooms, used, 'potion');
+  for (let i = 0, n = rndInt(2, 4); i < n; i++) placeItem(rooms, used, 'gold');
+  if (Math.random() < 0.45) placeItem(rooms, used, 'sword');
+  if (Math.random() < 0.45) placeItem(rooms, used, 'shield');
+}
+
+function placeNPC(def, rooms, used) {
+  for (let t = 0; t < 120; t++) {
+    const r = rooms[rndInt(1, rooms.length - 1)] || rooms[0];
+    const x = rndInt(r.x, r.x + r.w - 1);
+    const y = rndInt(r.y, r.y + r.h - 1);
+    const key = x + ',' + y;
+    if (map[y][x] !== 1 || used.has(key)) continue;
+    used.add(key);
+    npcs.push({ def, x, y, talked: false });
+    return;
+  }
+}
+
+function makeMonster(tpl, x, y) {
+  const bonus = tpl.boss ? 0 : Math.max(0, floorNum - (tpl.minFloor || 1));
+  const hp = tpl.hp + bonus * 3;
+  return {
+    name: tpl.name, sprite: tpl.sprite,
+    hp, maxhp: hp,
+    atk: tpl.atk + bonus,
+    def: tpl.def + Math.floor(bonus / 2),
+    exp: tpl.exp, boss: !!tpl.boss,
+    x, y, awake: false
+  };
+}
+
+function spawnMonsterIn(rooms, used) {
+  const pool = MONSTERS.filter(m => m.minFloor <= floorNum);
+  const tpl = pool[rnd(pool.length)];
+  for (let t = 0; t < 60; t++) {
+    const r = rooms[rndInt(1, rooms.length - 1)] || rooms[0];
+    const x = rndInt(r.x, r.x + r.w - 1);
+    const y = rndInt(r.y, r.y + r.h - 1);
+    if (map[y][x] !== 1) continue;
+    const key = x + ',' + y;
+    if (used.has(key)) continue;
+    used.add(key);
+    monsters.push(makeMonster(tpl, x, y));
+    return;
+  }
+}
+
+function placeItem(rooms, used, type) {
+  for (let t = 0; t < 80; t++) {
+    const r = rooms[rnd(rooms.length)];
+    const x = rndInt(r.x, r.x + r.w - 1);
+    const y = rndInt(r.y, r.y + r.h - 1);
+    const key = x + ',' + y;
+    if (map[y][x] !== 1 || used.has(key)) continue;
+    used.add(key);
+    if (type === 'gold') {
+      items.push({ x, y, type, amount: rndInt(5, 18) + floorNum * 3 });
+    } else {
+      items.push({ x, y, type });
+    }
+    return;
+  }
+}
+
+/* ============================================================
+   视野
+   ============================================================ */
+function los(x0, y0, x1, y1) {
+  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+  let x = x0, y = y0;
+
+  for (let guard = 0; guard < 200; guard++) {
+    if (x === x1 && y === y1) return true;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx)  { err += dx; y += sy; }
+    if (x === x1 && y === y1) return true;
+    if (y < 0 || y >= H || x < 0 || x >= W) return false;
+    if (map[y][x] === 0) return false;
+  }
+  return false;
+}
+
+function computeFOV() {
+  visible = Array.from({ length: H }, () => Array(W).fill(false));
+  const y0 = Math.max(0, p.y - FOV_RADIUS), y1 = Math.min(H - 1, p.y + FOV_RADIUS);
+  const x0 = Math.max(0, p.x - FOV_RADIUS), x1 = Math.min(W - 1, p.x + FOV_RADIUS);
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (Math.hypot(x - p.x, y - p.y) > FOV_RADIUS) continue;
+      if (los(p.x, p.y, x, y)) {
+        visible[y][x] = true;
+        seen[y][x] = true;
+      }
+    }
+  }
+}
+
+/* ============================================================
+   渲染
+   ============================================================ */
+function render() {
+  const t = performance.now();
+
+  ctx.fillStyle = '#0d0a18';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (!seen[y][x]) continue;
+      const vis = visible[y][x];
+      const px = x * TS, py = y * TS;
+      if (map[y][x] === 0) drawWall(px, py, x, y, vis);
+      else drawFloor(px, py, x, y, vis);
+    }
+  }
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (map[y][x] === 2 && seen[y][x]) {
+        if (visible[y][x]) {
+          drawSprite(SPR.stairs.rows, x, y, SPR.stairs.pal);
+        } else {
+          ctx.globalAlpha = 0.35;
+          drawSprite(SPR.stairs.rows, x, y, SPR.stairs.pal);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+
+  for (const it of items) {
+    if (!visible[it.y][it.x]) continue;
+    drawShadow(it.x, it.y);
+    const spr = SPR[it.type];
+    if (spr) {
+      const bob = Math.sin(t / 260 + it.x * 1.7 + it.y) * 1.5;
+      drawSprite(spr.rows, it.x, it.y + bob / TS, spr.pal);
+    }
+  }
+
+  for (const npc of npcs) {
+    if (!visible[npc.y][npc.x]) continue;
+    const pulse = 0.10 + 0.06 * Math.sin(t / 400);
+    ctx.fillStyle = 'rgba(255,209,102,' + pulse.toFixed(3) + ')';
+    ctx.fillRect(npc.x * TS + 1, npc.y * TS + 1, TS - 2, TS - 2);
+
+    drawShadow(npc.x, npc.y);
+    const spr = SPR[npc.def.sprite];
+    if (spr) {
+      const bob = Math.sin(t / 340 + npc.x) * 1.1;
+      drawSprite(spr.rows, npc.x, npc.y + bob / TS, spr.pal);
+    }
+
+    if (!npc.talked) {
+      const by = npc.y * TS - 4 + Math.sin(t / 300) * 1.5;
+      ctx.fillStyle = '#ffd166';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('!', npc.x * TS + TS / 2, by);
+    }
+  }
+
+  for (const m of monsters) {
+    if (m.hp <= 0 || !visible[m.y][m.x]) continue;
+    drawShadow(m.x, m.y);
+    const spr = SPR[m.sprite];
+    if (!spr) continue;
+    const bob = m.boss ? Math.sin(t / 300) * 1.2 : Math.sin(t / 280 + m.x + m.y) * 1.2;
+    drawSprite(spr.rows, m.x, m.y + bob / TS, spr.pal);
+
+    if (m.hp < m.maxhp) {
+      const bw = 18, bx = m.x * TS + 3, by = m.y * TS + 1;
+      ctx.fillStyle = '#241b2f';
+      ctx.fillRect(bx - 1, by - 1, bw + 2, 5);
+      ctx.fillStyle = m.boss ? '#ffd166' : '#ff5c5c';
+      ctx.fillRect(bx, by, Math.max(1, Math.round(bw * (m.hp / m.maxhp))), 3);
+    }
+  }
+
+  drawShadow(p.x, p.y);
+  const pbob = Math.sin(t / 320) * 1.0;
+  drawSprite(SPR.hero.rows, p.x, p.y + pbob / TS, SPR.hero.pal);
+
+  if (dialog) drawDialog();
+  if (tutorial.active) drawTutorialOverlay();
+
+  if (gameState === 'dead' || gameState === 'win') {
+    ctx.fillStyle = 'rgba(13,10,24,0.85)';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+
+    const cx = cv.width / 2, cy = cv.height / 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (gameState === 'dead') {
+      ctx.fillStyle = '#ff4d6d';
+      ctx.font = 'bold 46px "Courier New", "Microsoft YaHei", monospace';
+      ctx.fillText('你 死 了', cx, cy - 40);
+    } else {
+      ctx.fillStyle = '#ffd166';
+      ctx.font = 'bold 40px "Courier New", "Microsoft YaHei", monospace';
+      ctx.fillText('★ 星 辉 重 燃 ★', cx, cy - 40);
+    }
+
+    ctx.fillStyle = '#d8d0ee';
+    ctx.font = '16px "Courier New", "Microsoft YaHei", monospace';
+    ctx.fillText('到达第 ' + floorNum + ' 层 · 等级 ' + p.lvl + ' · 击杀 ' + p.kills + ' 只怪物', cx, cy + 18);
+    ctx.fillStyle = '#9b8fc0';
+    ctx.font = '15px "Courier New", "Microsoft YaHei", monospace';
+    ctx.fillText('金币 ' + p.gold, cx, cy + 46);
+
+    ctx.fillStyle = '#7dd3fc';
+    ctx.font = '16px "Courier New", "Microsoft YaHei", monospace';
+    ctx.fillText(isTouch ? '按 菜 键打开菜单' : '按 R 重新开始', cx, cy + 92);
+    if (!isTouch) {
+      ctx.fillStyle = '#9b8fc0';
+      ctx.font = '14px "Courier New", "Microsoft YaHei", monospace';
+      ctx.fillText('按 T 返回标题画面', cx, cy + 118);
+    }
+  }
+}
+
+function drawTutorialOverlay() {
+  const step = TUTORIAL_STEPS[tutorial.step];
+  if (!step) return;
+
+  const h = 58;
+  const y = cv.height - h - 8;
+  const x = 8;
+  const w = cv.width - 16;
+
+  ctx.fillStyle = 'rgba(18,12,34,0.94)';
+  ctx.fillRect(x, y, w, h);
+
+  ctx.strokeStyle = '#7dd3fc';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+
+  for (let i = 0; i < TUTORIAL_STEPS.length; i++) {
+    ctx.fillStyle = i < tutorial.step ? '#7dd3fc'
+                  : i === tutorial.step ? '#ffd166'
+                  : '#3d2f5c';
+    ctx.fillRect(x + 14 + i * 14, y + 13, 8, 8);
+  }
+
+  const tx = x + 14 + TUTORIAL_STEPS.length * 14 + 12;
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  ctx.fillStyle = '#ffd166';
+  ctx.font = 'bold 14px "Courier New", "Microsoft YaHei", monospace';
+  ctx.fillText(step.title, tx, y + 17);
+
+  ctx.fillStyle = '#d8d0ee';
+  ctx.font = '12px "Courier New", "Microsoft YaHei", monospace';
+  ctx.fillText(step.text + '　→　' + step.goal, tx, y + 39);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#5f5388';
+  ctx.font = '10px "Courier New", "Microsoft YaHei", monospace';
+  ctx.fillText(isTouch ? '按 菜 键跳过' : 'ESC 跳过教程', x + w - 12, y + 17);
+}
+
+function wrapText(text, x, y, maxW, lh) {
+  let line = '';
+  let yy = y;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, x, yy);
+      line = ch;
+      yy += lh;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, x, yy);
+}
+
+function drawDialog() {
+  const dh = 118;
+  const dy = cv.height - dh - 12;
+  const dx = 12;
+  const dw = cv.width - 24;
+
+  ctx.fillStyle = 'rgba(18,12,34,0.96)';
+  ctx.fillRect(dx, dy, dw, dh);
+
+  ctx.strokeStyle = '#ffd166';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(dx + 1.5, dy + 1.5, dw - 3, dh - 3);
+
+  ctx.strokeStyle = '#5b4a8f';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(dx + 5.5, dy + 5.5, dw - 11, dh - 11);
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  if (dialog.name) {
+    ctx.fillStyle = '#ffd166';
+    ctx.font = 'bold 15px "Courier New", "Microsoft YaHei", monospace';
+    ctx.fillText(dialog.name, dx + 22, dy + 26);
+  } else {
+    ctx.fillStyle = '#7d6fa8';
+    ctx.font = 'bold 13px "Courier New", "Microsoft YaHei", monospace';
+    ctx.fillText('旁白', dx + 22, dy + 26);
+  }
+
+  ctx.fillStyle = '#e8ddff';
+  ctx.font = '15px "Courier New", "Microsoft YaHei", monospace';
+  const text = dialog.lines[dialog.idx] || '';
+  wrapText(text, dx + 22, dy + 56, dw - 44, 24);
+
+  ctx.fillStyle = '#7d6fa8';
+  ctx.font = '12px "Courier New", "Microsoft YaHei", monospace';
+  ctx.textAlign = 'right';
+  const hint = dialog.idx >= dialog.lines.length - 1
+    ? (isTouch ? '轻触屏幕 结束 ▼' : '空格 / 回车 结束 ▼')
+    : (isTouch ? '轻触屏幕 继续 ▼' : '空格 / 回车 继续 ▼');
+  ctx.fillText(hint, dx + dw - 18, dy + dh - 16);
+
+  ctx.textAlign = 'left';
+  const total = dialog.lines.length;
+  for (let i = 0; i < total; i++) {
+    ctx.fillStyle = i === dialog.idx ? '#ffd166' : '#3d2f5c';
+    ctx.fillRect(dx + 22 + i * 9, dy + dh - 18, 6, 4);
+  }
+}
+
+/* ============================================================
+   对话
+   ============================================================ */
+function startDialog(npc) {
+  const def = npc.def;
+  const lines = npc.talked ? def.short : def.long;
+  dialog = { name: def.name, lines: lines, idx: 0, onEnd: null };
+
+  if (!npc.talked) {
+    npc.talked = true;
+    dialog.onEnd = () => {
+      if (def.reward) {
+        const msg = def.reward(p);
+        if (msg) log('【' + def.name + '】' + msg);
+      }
+      if (def.id === 'lina' && questStage === 1) {
+        questStage = 2;
+        log('【主线】新的目标：收集三枚符文碎片。');
+      }
+      updateUI();
+    };
+  }
+  render();
+}
+
+function advanceDialog() {
+  if (!dialog) return;
+  dialog.idx++;
+  if (dialog.idx >= dialog.lines.length) {
+    const fn = dialog.onEnd;
+    dialog = null;
+    if (fn) fn();
+    checkQuest();
+  }
+  render();
+  updateUI();
+}
+
+/* ============================================================
+   UI
+   ============================================================ */
+function updateUI() {
+  el.floor.textContent = floorNum;
+  el.hpbar.style.width = Math.max(0, (p.hp / p.maxhp) * 100) + '%';
+  el.hptext.textContent = Math.max(0, p.hp) + ' / ' + p.maxhp;
+  el.lvl.textContent = p.lvl;
+  el.atk.textContent = p.atk;
+  el.def.textContent = p.def;
+  el.pot.textContent = p.potions;
+  el.gold.textContent = p.gold;
+  el.exp.textContent = p.exp + '/' + p.next;
+
+  // 迷你 HUD
+  if (el.mhp) {
+    el.mhp.textContent = Math.max(0, p.hp) + '/' + p.maxhp;
+    el.mfloor.textContent = floorNum;
+    el.mpot.textContent = p.potions;
+    el.mlvl.textContent = p.lvl;
+  }
+
+  updateQuestUI();
+
+  const shown = msgs.slice(-6);
+  el.log.innerHTML = shown.map((m, i) =>
+    '<div style="opacity:' + (0.35 + 0.65 * ((i + 1) / shown.length)).toFixed(2) + '">· ' + m + '</div>'
+  ).join('');
+}
+
+function updateQuestUI() {
+  if (tutorial.active) {
+    const step = TUTORIAL_STEPS[tutorial.step];
+    if (step) {
+      el.questBox.classList.add('tut');
+      el.qhead.textContent = '◈ 新手教程 (' + (tutorial.step + 1) + '/' + TUTORIAL_STEPS.length + ')';
+      el.qtitle.textContent = step.title;
+      el.qdesc.textContent = step.goal;
+      return;
+    }
+  }
+  el.questBox.classList.remove('tut');
+  el.qhead.textContent = '◈ 主线任务';
+
+  if (questStage >= QUESTS.length) {
+    el.qtitle.textContent = QUESTS[QUESTS.length - 1].title;
+    el.qdesc.textContent = QUESTS[QUESTS.length - 1].desc;
+    return;
+  }
+  const q = QUESTS[questStage];
+  el.qtitle.textContent = q.title;
+  let d = q.desc;
+  if (questStage === 2) d = d.replace('(0/3)', '(' + runes + '/3)');
+  el.qdesc.textContent = d;
+}
+
+function log(s) {
+  msgs.push(s);
+  if (msgs.length > 40) msgs.shift();
+}
+
+function checkQuest() {
+  if (questStage === 0 && floorNum >= 3) {
+    questStage = 1;
+    log('【主线】第一章完成：你已深入第 3 层。');
+    log('【主线】新的目标：在第 4 层寻找幽魂莉娜。');
+  }
+  if (questStage === 2 && runes >= 3) {
+    questStage = 3;
+    log('【主线】三枚符文碎片已集齐！星辉之力在手中回荡。');
+    log('【主线】新的目标：击败地牢领主。');
+  }
+  if (questStage === 3 && gameState === 'win') questStage = 4;
+  updateQuestUI();
+}
+
+/* ============================================================
+   教程
+   ============================================================ */
+function checkTutorial() {
+  if (!tutorial.active) return;
+  const step = TUTORIAL_STEPS[tutorial.step];
+  if (!step) return;
+
+  if (step.check()) {
+    tutorial.step++;
+    if (tutorial.step < TUTORIAL_STEPS.length) {
+      const next = TUTORIAL_STEPS[tutorial.step];
+      log('【教程】' + next.title + '：' + next.goal);
+    } else {
+      tutorial.active = false;
+      log('【教程】教学完成！开始你的冒险吧。');
+    }
+  }
+  updateQuestUI();
+}
+
+/* ============================================================
+   初始化
+   ============================================================ */
+function resetPlayer() {
+  p = {
+    x: 0, y: 0,
+    hp: 30, maxhp: 30,
+    atk: 6, def: 1,
+    lvl: 1, exp: 0, next: 12,
+    gold: 0, potions: 1, kills: 0
+  };
+  msgs = [];
+  gameState = 'play';
+  questStage = 0;
+  runes = 0;
+  runeDroppedThisFloor = false;
+}
+
+function newGame() {
+  resetPlayer();
+  floorNum = 1;
+  tutorial = { active:false, step:0, movesDone:0, pickedUp:false, attacked:false, potioned:false, descended:false };
+
+  genFloor();
+  computeFOV();
+
+  dialog = {
+    name: null,
+    lines: [
+      '—— 星辉纪元 832 年 ——',
+      '深渊裂隙在地底撕开，星辉圣殿的守护者阿斯特拉，以自身为容器封印了深渊。',
+      '三百年后，封印衰弱。阿斯特拉被深渊腐蚀，化为了地牢领主。',
+      '你是守誓者的后裔，背负着净化圣殿的使命。',
+      '深入地牢，寻找真相，终结这一切。'
+    ],
+    idx: 0,
+    onEnd: () => {
+      log('你推开沉重的石门，走进了星辉圣殿第 1 层。');
+      updateUI();
+    }
+  };
+
+  log('星辉圣殿，第一层。');
+  render();
+  updateUI();
+}
+
+function startTutorial() {
+  resetPlayer();
+  floorNum = 1;
+  p.hp = 18;
+  p.potions = 1;
+
+  tutorial = {
+    active: true, step: 0, movesDone: 0,
+    pickedUp: false, attacked: false, potioned: false, descended: false
+  };
+
+  genTutorialFloor();
+  computeFOV();
+
+  log('【教程】欢迎来到星辉圣殿，守誓者。');
+  log('【教程】跟随指引，学习基础操作。');
+
+  render();
+  updateUI();
+}
+
+/* ============================================================
+   游戏逻辑
+   ============================================================ */
+function npcAt(x, y) {
+  return npcs.find(n => n.x === x && n.y === y);
+}
+
+function monsterAt(x, y) {
+  return monsters.find(m => m.hp > 0 && m.x === x && m.y === y);
+}
+
+function tryMove(dx, dy) {
+  if (gameState !== 'play' || dialog) return;
+  const nx = p.x + dx, ny = p.y + dy;
+  if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
+
+  const m = monsterAt(nx, ny);
+  if (m) { playerAttack(m); endTurn(); return; }
+  if (map[ny][nx] === 0) return;
+
+  p.x = nx;
+  p.y = ny;
+
+  if (tutorial.active) tutorial.movesDone++;
+
+  const npc = npcAt(nx, ny);
+  if (npc) { startDialog(npc); return; }
+
+  pickUp();
+  endTurn();
+}
+
+function playerAttack(m) {
+  const dmg = Math.max(1, p.atk - m.def + rndInt(0, 3));
+  m.hp -= dmg;
+  m.awake = true;
+
+  if (m.hp <= 0) {
+    m.hp = 0;
+    p.kills++;
+    log('你击败了' + m.name + '！ +' + m.exp + ' 经验');
+    gainExp(m.exp);
+
+    if (tutorial.active) tutorial.attacked = true;
+
+    if (questStage === 2 && runes < 3 && !runeDroppedThisFloor) {
+      runeDroppedThisFloor = true;
+      runes++;
+      log('★ 从' + m.name + '身上获得了「星辉符文碎片」！(' + runes + '/3)');
+      updateQuestUI();
+    }
+
+    if (Math.random() < 0.22) {
+      items.push({ x: m.x, y: m.y, type: 'potion' });
+    } else if (Math.random() < 0.45) {
+      items.push({ x: m.x, y: m.y, type: 'gold', amount: rndInt(4, 12) + floorNum * 2 });
+    }
+
+    if (m.boss) {
+      gameState = 'win';
+      log('地牢领主的躯壳崩碎，阿斯特拉的灵魂重获自由。');
+      log('「谢谢你……守誓者。星辉，再次照亮了这里。」');
+      checkQuest();
+    }
+  } else {
+    log('你攻击' + m.name + '，造成 ' + dmg + ' 点伤害');
+  }
+}
+
+function gainExp(n) {
+  p.exp += n;
+  while (p.exp >= p.next) {
+    p.exp -= p.next;
+    p.lvl++;
+    p.next = Math.floor(p.next * 1.3) + 4;
+    p.maxhp += 8;
+    p.hp += 8;
+    p.atk += 2;
+    p.def += 1;
+    log('★ 升级！你达到了 ' + p.lvl + ' 级');
+  }
+}
+
+function pickUp() {
+  const i = items.findIndex(it => it.x === p.x && it.y === p.y);
+  if (i < 0) return;
+  const it = items[i];
+  items.splice(i, 1);
+
+  if (it.type === 'potion') {
+    p.potions++;
+    log('拾取了一瓶治疗药水。');
+  } else if (it.type === 'gold') {
+    p.gold += it.amount;
+    log('拾取了 ' + it.amount + ' 枚金币。');
+  } else if (it.type === 'sword') {
+    p.atk += 2;
+    log('拾取了一把锋利的短剑！攻击 +2');
+  } else if (it.type === 'shield') {
+    p.def += 1;
+    log('拾取了一面坚固的盾牌！防御 +1');
+  }
+
+  if (tutorial.active) tutorial.pickedUp = true;
+}
+
+function drinkPotion() {
+  if (gameState !== 'play' || dialog) return;
+  if (p.potions <= 0) { log('你没有药水了。'); updateUI(); return; }
+  if (p.hp >= p.maxhp) { log('你的生命值已满。'); updateUI(); return; }
+  p.potions--;
+  const heal = Math.floor(p.maxhp * 0.4) + 15;
+  p.hp = Math.min(p.maxhp, p.hp + heal);
+  log('你喝下药水，恢复了 ' + heal + ' 点生命。');
+
+  if (tutorial.active) tutorial.potioned = true;
+
+  endTurn();
+}
+
+function descend() {
+  if (gameState !== 'play' || dialog) return;
+  if (map[p.y][p.x] !== 2) { log('这里没有向下的楼梯。'); updateUI(); return; }
+
+  const wasTutorial = tutorial.active;
+
+  floorNum++;
+  genFloor();
+  log('你走下楼梯，来到第 ' + floorNum + ' 层。');
+
+  if (wasTutorial) {
+    tutorial.active = false;
+    tutorial.descended = true;
+    tutorial.step = TUTORIAL_STEPS.length;
+    log('【教程】教程完成！欢迎开始真正的冒险。');
+    p.potions += 1;
+    log('【教程】奖励：治疗药水 ×1');
+  }
+
+  if (floorNum === MAX_FLOOR) {
+    log('空气变得粘稠……领主的气息就在前方。');
+  } else if (floorNum === 4 && questStage === 1) {
+    log('一个幽蓝的身影在前方若隐若现……');
+  }
+
+  computeFOV();
+  checkQuest();
+  render();
+  updateUI();
+}
+
+function monsterTurn() {
+  for (const m of monsters) {
+    if (m.hp <= 0) continue;
+    if (m.passive) continue;
+
+    const dist = Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y));
+    if (visible[m.y][m.x] && dist <= 9) m.awake = true;
+    if (!m.awake) continue;
+
+    if (dist === 1) {
+      const dmg = Math.max(1, m.atk - p.def + rndInt(0, 2));
+      p.hp -= dmg;
+      log(m.name + '攻击你，造成 ' + dmg + ' 点伤害');
+      if (p.hp <= 0) return;
+      continue;
+    }
+
+    const dx = sign(p.x - m.x), dy = sign(p.y - m.y);
+    const opts = [];
+    if (Math.abs(p.x - m.x) > Math.abs(p.y - m.y)) {
+      opts.push([dx, 0], [0, dy], [dx, dy]);
+    } else {
+      opts.push([0, dy], [dx, 0], [dx, dy]);
+    }
+
+    for (const [ox, oy] of opts) {
+      if (ox === 0 && oy === 0) continue;
+      const nx = m.x + ox, ny = m.y + oy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      if (map[ny][nx] === 0) continue;
+      if (nx === p.x && ny === p.y) continue;
+      if (monsterAt(nx, ny)) continue;
+      m.x = nx;
+      m.y = ny;
+      break;
+    }
+  }
+}
+
+function endTurn() {
+  if (gameState !== 'play') return;
+  computeFOV();
+  monsterTurn();
+
+  if (p.hp <= 0) {
+    p.hp = 0;
+    gameState = 'dead';
+    log('你倒在了冰冷的地板上……');
+  }
+
+  if (tutorial.active) checkTutorial();
+  checkQuest();
+  render();
+  updateUI();
+}
+
+/* ============================================================
+   ★ 统一输入分发
+   ============================================================ */
+function dispatchKey(k) {
+  /* 标题界面 */
+  if (gameState === 'title') {
+    return handleTitleInput(k);
+  }
+
+  /* 教程中跳过 */
+  if (tutorial.active && k === 'Escape') {
+    tutorial.active = false;
+    log('【教程】已跳过教程。');
+    updateQuestUI();
+    render();
+    return true;
+  }
+
+  /* 对话中 */
+  if (dialog) {
+    if (k === ' ' || k === 'Enter' || k === '>' || k === 'tap') {
+      advanceDialog();
+      return true;
+    }
+    return false;
+  }
+
+  /* 死亡 / 胜利 */
+  if (gameState === 'dead' || gameState === 'win') {
+    if (k === 'r' || k === 'R') { newGame(); return true; }
+    if (k === 't' || k === 'T') {
+      gameState = 'title';
+      titleView = 'main';
+      titleMenuIdx = 0;
+      return true;
+    }
+    return false;
+  }
+
+  /* 游戏中 */
+  switch (k) {
+    case 'ArrowUp': case 'w': case 'W':    tryMove(0, -1); return true;
+    case 'ArrowDown': case 's': case 'S':  tryMove(0, 1);  return true;
+    case 'ArrowLeft': case 'a': case 'A':  tryMove(-1, 0); return true;
+    case 'ArrowRight': case 'd': case 'D': tryMove(1, 0);  return true;
+    case ' ': case '.': case 'wait':       endTurn();      return true;
+    case '1': case 'potion':               drinkPotion();  return true;
+    case '>': case 'Enter': case 'descend': descend();     return true;
+    case 'r': case 'R':
+      if (tutorial.active) startTutorial();
+      else newGame();
+      return true;
+    case 'menu':                           return false; // 由按钮单独处理
+  }
+  return false;
+}
+
+/* ============================================================
+   标题界面输入
+   ============================================================ */
+function handleTitleInput(k) {
+  if (titleView !== 'main') {
+    if (k === 'Enter' || k === ' ' || k === 'Escape' || k === 'Backspace' || k === '>' || k === 'tap') {
+      titleView = 'main';
+      return true;
+    }
+    return false;
+  }
+
+  if (k === 'ArrowUp' || k === 'w' || k === 'W') {
+    titleMenuIdx = (titleMenuIdx - 1 + TITLE_MENU.length) % TITLE_MENU.length;
+    return true;
+  }
+  if (k === 'ArrowDown' || k === 's' || k === 'S') {
+    titleMenuIdx = (titleMenuIdx + 1) % TITLE_MENU.length;
+    return true;
+  }
+  if (k === 'Enter' || k === ' ' || k === '>' || k === 'tap') {
+    selectTitleMenu();
+    return true;
+  }
+  return false;
+}
+
+function selectTitleMenu() {
+  const item = TITLE_MENU[titleMenuIdx];
+  if (item.id === 'start') {
+    newGame();
+  } else if (item.id === 'tutorial') {
+    startTutorial();
+  } else if (item.id === 'help') {
+    titleView = 'help';
+  } else if (item.id === 'about') {
+    titleView = 'about';
+  }
+}
+
+/* ============================================================
+   ★ 触控按钮绑定
+   ============================================================ */
+const KEY_MAP = {
+  'ArrowUp':    'ArrowUp',
+  'ArrowLeft':  'ArrowLeft',
+  'ArrowDown':  'ArrowDown',
+  'ArrowRight': 'ArrowRight',
+  'potion':     'potion',
+  'wait':       'wait',
+  'descend':    'descend',
+  'menu':       'menu'
+};
+
+function bindTouchButton(el) {
+  const key = KEY_MAP[el.dataset.key];
+  if (!key) return;
+
+  let holdTimer = null;
+  let repeatTimer = null;
+  let isHeld = false;
+
+  const clearTimers = () => {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (repeatTimer) { clearInterval(repeatTimer); repeatTimer = null; }
+  };
+
+  const press = e => {
+    if (e.cancelable) e.preventDefault();
+    if (isHeld) return;
+    isHeld = true;
+    el.classList.add('pressed');
+
+    // 菜单按钮特殊处理：直接切换
+    if (key === 'menu') {
+      toggleMenu();
+      return;
+    }
+
+    dispatchKey(key);
+
+    // 方向键长按连续移动
+    if (key.startsWith('Arrow')) {
+      holdTimer = setTimeout(() => {
+        repeatTimer = setInterval(() => {
+          if (gameState !== 'play' || dialog || tutorial && false) {
+            clearTimers();
+            return;
+          }
+          dispatchKey(key);
+        }, 170);
+      }, 320);
+    }
+  };
+
+  const release = e => {
+    if (e && e.cancelable) e.preventDefault();
+    if (!isHeld) return;
+    isHeld = false;
+    el.classList.remove('pressed');
+    clearTimers();
+  };
+
+  el.addEventListener('touchstart', press, { passive: false });
+  el.addEventListener('touchend', release, { passive: false });
+  el.addEventListener('touchcancel', release, { passive: false });
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+}
+
+/* 菜单按钮：弹出快捷菜单 */
+function toggleMenu() {
+  if (gameState === 'title') return;
+
+  if (gameState === 'dead' || gameState === 'win') {
+    // 死亡/胜利时，菜单键 = 重开
+    newGame();
+    return;
+  }
+
+  // 游戏中：返回标题
+  if (dialog) return;
+  if (confirm('返回标题画面？进度将会丢失。')) {
+    gameState = 'title';
+    titleView = 'main';
+    titleMenuIdx = 0;
+  }
+}
+
+/* ============================================================
+   Canvas 触摸（标题菜单 / 对话推进）
+   ============================================================ */
+function canvasPos(clientX, clientY) {
+  const r = cv.getBoundingClientRect();
+  return {
+    x: (clientX - r.left) * (cv.width / r.width),
+    y: (clientY - r.top) * (cv.height / r.height)
+  };
+}
+
+cv.addEventListener('touchstart', e => {
+  if (e.cancelable) e.preventDefault();
+  const t = e.touches[0];
+  if (!t) return;
+  const pos = canvasPos(t.clientX, t.clientY);
+
+  if (gameState === 'title') {
+    if (titleView !== 'main') {
+      titleView = 'main';
+      return;
+    }
+    for (let i = 0; i < TITLE_MENU.length; i++) {
+      const r = menuItemRect(i);
+      if (pos.x >= r.x && pos.x <= r.x + r.w && pos.y >= r.y && pos.y <= r.y + r.h) {
+        titleMenuIdx = i;
+        selectTitleMenu();
+        return;
+      }
+    }
+    return;
+  }
+
+  // 对话推进
+  if (dialog) {
+    advanceDialog();
+  }
+}, { passive: false });
+
+/* 鼠标点击（桌面端） */
+cv.addEventListener('click', e => {
+  if (gameState !== 'title') return;
+  if (titleView !== 'main') {
+    titleView = 'main';
+    return;
+  }
+  const pos = canvasPos(e.clientX, e.clientY);
+  for (let i = 0; i < TITLE_MENU.length; i++) {
+    const r = menuItemRect(i);
+    if (pos.x >= r.x && pos.x <= r.x + r.w && pos.y >= r.y && pos.y <= r.y + r.h) {
+      titleMenuIdx = i;
+      selectTitleMenu();
+      break;
+    }
+  }
+});
+
+/* 鼠标 hover（桌面端） */
+cv.addEventListener('mousemove', e => {
+  if (gameState !== 'title' || titleView !== 'main') return;
+  if (isTouch) return;
+  const pos = canvasPos(e.clientX, e.clientY);
+  for (let i = 0; i < TITLE_MENU.length; i++) {
+    const r = menuItemRect(i);
+    if (pos.x >= r.x && pos.x <= r.x + r.w && pos.y >= r.y && pos.y <= r.y + r.h) {
+      titleMenuIdx = i;
+      break;
+    }
+  }
+});
+
+/* ============================================================
+   键盘
+   ============================================================ */
+window.addEventListener('keydown', e => {
+  const k = e.key;
+  const handled = dispatchKey(k);
+  if (handled) e.preventDefault();
+});
+
+/* ============================================================
+   启动
+   ============================================================ */
+function loop() {
+  const t = performance.now();
+  if (gameState === 'title') {
+    renderTitle(t);
+  } else {
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+
+/* 初始化 */
+initStars();
+
+p = {
+  x: 0, y: 0, hp: 30, maxhp: 30, atk: 6, def: 1,
+  lvl: 1, exp: 0, next: 12, gold: 0, potions: 1, kills: 0
+};
+floorNum = 1;
+msgs = [];
+map = blankMap();
+seen = Array.from({ length: H }, () => Array(W).fill(false));
+visible = Array.from({ length: H }, () => Array(W).fill(false));
+monsters = [];
+items = [];
+npcs = [];
+gameState = 'title';
+titleView = 'main';
+
+/* 绑定所有触控按钮 */
+document.querySelectorAll('.tbtn').forEach(bindTouchButton);
+
+/* 阻止移动端双击缩放 */
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+updateUI();
+loop();
+
+})();
+</script>
+</body>
+</html>
